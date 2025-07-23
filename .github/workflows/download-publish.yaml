@@ -27,7 +27,24 @@ jobs:
     - name: Use repository-stored settings.xml
       run: |
         mkdir -p ~/.m2
-        cp .github/maven/settings.xml ~/.m2/settings.xml
+        cat > ~/.m2/settings.xml <<EOF
+        <settings>
+          <servers>
+            <server>
+              <id>github</id>
+              <username>\${env.MAVEN_USERNAME}</username>
+              <password>\${env.MAVEN_PASSWORD}</password>
+            </server>
+          </servers>
+          <mirrors>
+            <mirror>
+              <id>github</id>
+              <url>https://maven.pkg.github.com/Shalini-source/mob-backend-lib</url>
+              <mirrorOf>central</mirrorOf>
+            </mirror>
+          </mirrors>
+        </settings>
+        EOF
 
     - name: Create download directory
       run: mkdir -p ./artifact
