@@ -1,4 +1,4 @@
-name: Mirror Maven Central Artifact
+name: Mirror Maven Artifact
 
 on:
   workflow_dispatch:
@@ -14,35 +14,41 @@ on:
         required: true
 
 jobs:
-  mirror:
+  mirror-and-publish:
     runs-on: ubuntu-latest
     steps:
-    - name: Set up JDK
+
+    - name: Set up Java
       uses: actions/setup-java@v3
       with:
-        java-version: 17
         distribution: temurin
+        java-version: '17'
 
-    - name: Download original artifact
+    - name: Create download directory
+      run: mkdir -p ./artifact
+
+    - name: Download JAR from Maven Central
       run: |
-        mvn dependency:get \
-          -DgroupId=${{ github.event.inputs.group_id }} \
-          -DartifactId=${{ github.event.inputs.artifact_id }} \
-          -Dversion=${{ github.event.inputs.version }}
+        mvn dependency:copy \
+          -Dartifact=${{ github.event.inputs.group_id }}:${{ github.event.inputs.artifact_id }}:${{ github.event.inputs.version }} \
+          -DoutputDirectory=./artifact
+
+    - name: Locate downloaded JAR
+      id: locate_jar
+      run: |
+        JAR_NAME="${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.jar"
+        echo "jar_name=$JAR_NAME" >> $GITHUB_OUTPUT
 
     - name: Deploy to GitHub Packages
       run: |
-        run: |
-          GROUP_ID_PATH=$(echo "${{ github.event.inputs.group_id }}" | tr '.' '/')
-          mvn deploy:deploy-file \
-            -DgroupId=${{ github.event.inputs.group_id }} \
-            -DartifactId=${{ github.event.inputs.artifact_id }} \
-            -Dversion=${{ github.event.inputs.version }} \
-            -Dpackaging=jar \
-            -Dfile=~/.m2/repository/$GROUP_ID_PATH/${{ github.event.inputs.artifact_id }}/${{ github.event.inputs.version }}/${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.jar \
-            -Durl=https://maven.pkg.github.com/Shalini-source/mob-backend-lib \
-            -DrepositoryId=github
-
+        mvn deploy:deploy-file \
+          -DgroupId=${{ github.event.inputs.group_id }} \
+          -DartifactId=${{ github.event.inputs.artifact_id }} \
+          -Dversion=${{ github.event.inputs.version }} \
+          -Dpackaging=jar \
+          -Dfile=./artifact/${{ steps.locate_jar.outputs.jar_name }} \
+          -DrepositoryId=github \
+          -Durl=https://maven.pkg.github.com/Shalini-source/mob-backend-lib
       env:
         MAVEN_USERNAME: ${{ github.actor }}
         MAVEN_PASSWORD: ${{ secrets.PAT_TOKEN }}
