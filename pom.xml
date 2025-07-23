@@ -4,7 +4,7 @@
                              https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>org.springframework.cloud</groupId>
+  <groupId>com.shalini.moblib</groupId>
   <artifactId>spring-cloud-config-client</artifactId>
   <version>4.0.4</version>
   <packaging>jar</packaging>
