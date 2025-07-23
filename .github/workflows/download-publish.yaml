@@ -48,15 +48,6 @@ jobs:
                   <snapshots><enabled>false</enabled></snapshots>
                 </repository>
               </repositories>
-              <pluginRepositories>
-                <pluginRepository>
-                  <id>central-plugins</id>
-                  <name>Plugin Repository</name>
-                  <url>https://repo.maven.apache.org/maven2</url>
-                  <releases><enabled>true</enabled></releases>
-                  <snapshots><enabled>false</enabled></snapshots>
-                </pluginRepository>
-              </pluginRepositories>
             </profile>
           </profiles>
         
