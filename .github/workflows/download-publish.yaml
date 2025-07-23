@@ -32,6 +32,10 @@ jobs:
         mvn dependency:copy \
           -Dartifact=${{ github.event.inputs.group_id }}:${{ github.event.inputs.artifact_id }}:${{ github.event.inputs.version }} \
           -DoutputDirectory=./artifact
+        mvn dependency:copy \
+          -Dartifact=${{ github.event.inputs.group_id }}:${{ github.event.inputs.artifact_id }}:${{ github.event.inputs.version }}:pom \
+          -DoutputDirectory=./artifact
+
 
     - name: Locate downloaded JAR
       id: locate_jar
@@ -50,7 +54,7 @@ jobs:
           -Dversion=${{ github.event.inputs.version }} \
           -Dpackaging=jar \
           -Dfile=./artifact/${{ steps.locate_jar.outputs.jar_name }} \
-          -DpomFile=./artifact/pom.xml \
+          -DpomFile=./artifact/${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.pom
           -DrepositoryId=github \
           -Durl=https://maven.pkg.github.com/Shalini-source/mob-backend-lib
       env:
