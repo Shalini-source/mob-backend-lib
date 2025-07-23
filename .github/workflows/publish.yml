@@ -43,3 +43,7 @@ jobs:
       - name: Build and Deploy
         run: mvn clean deploy
         
+      - name: Download dependency
+        run: mvn dependency:tree
+
+        
