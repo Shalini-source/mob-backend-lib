@@ -1,4 +1,4 @@
-oname: Mirror Maven Artifact
+name: Mirror Maven Artifact
 
 on:
   workflow_dispatch:
