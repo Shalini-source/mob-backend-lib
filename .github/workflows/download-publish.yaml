@@ -36,13 +36,33 @@ jobs:
               <password>\${env.MAVEN_PASSWORD}</password>
             </server>
           </servers>
-          <mirrors>
-            <mirror>
-              <id>github</id>
-              <url>https://maven.pkg.github.com/Shalini-source/mob-backend-lib</url>
-              <mirrorOf>central</mirrorOf>
-            </mirror>
-          </mirrors>
+          <profiles>
+            <profile>
+              <id>maven-central-profile</id>
+              <repositories>
+                <repository>
+                  <id>central</id>
+                  <name>Maven Central Repository</name>
+                  <url>https://repo.maven.apache.org/maven2</url>
+                  <releases><enabled>true</enabled></releases>
+                  <snapshots><enabled>false</enabled></snapshots>
+                </repository>
+              </repositories>
+              <pluginRepositories>
+                <pluginRepository>
+                  <id>central-plugins</id>
+                  <name>Plugin Repository</name>
+                  <url>https://repo.maven.apache.org/maven2</url>
+                  <releases><enabled>true</enabled></releases>
+                  <snapshots><enabled>false</enabled></snapshots>
+                </pluginRepository>
+              </pluginRepositories>
+            </profile>
+          </profiles>
+        
+          <activeProfiles>
+            <activeProfile>maven-central-profile</activeProfile>
+          </activeProfiles>
         </settings>
         EOF
 
