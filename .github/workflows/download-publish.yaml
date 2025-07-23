@@ -1,4 +1,4 @@
-name: Mirror Maven Artifact
+oname: Mirror Maven Artifact
 
 on:
   workflow_dispatch:
@@ -32,8 +32,8 @@ jobs:
           <servers>
             <server>
               <id>github</id>
-              <username>\${env.MAVEN_USERNAME}</username>
-              <password>\${env.MAVEN_PASSWORD}</password>
+              <username>${{ github.actor }}</username>
+              <password>${{ secrets.PAT_TOKEN }}</password>
             </server>
           </servers>
           <profiles>
