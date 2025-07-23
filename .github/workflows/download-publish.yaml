@@ -38,6 +38,9 @@ jobs:
       run: |
         JAR_NAME="${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.jar"
         echo "jar_name=$JAR_NAME" >> $GITHUB_OUTPUT
+        
+    - name: Verify downloaded file exists
+      run: ls -lh ./artifact
 
     - name: Deploy to GitHub Packages
       run: |
@@ -47,6 +50,7 @@ jobs:
           -Dversion=${{ github.event.inputs.version }} \
           -Dpackaging=jar \
           -Dfile=./artifact/${{ steps.locate_jar.outputs.jar_name }} \
+          -DpomFile=./artifact/pom.xml \
           -DrepositoryId=github \
           -Durl=https://maven.pkg.github.com/Shalini-source/mob-backend-lib
       env:
