@@ -1,0 +1,45 @@
+name: Mirror Maven Central Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      group_id:
+        description: 'Group ID (e.g. org.apache.commons)'
+        required: true
+      artifact_id:
+        description: 'Artifact ID (e.g. commons-lang3)'
+        required: true
+      version:
+        description: 'Version (e.g. 3.14.0)'
+        required: true
+
+jobs:
+  mirror:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Set up JDK
+      uses: actions/setup-java@v3
+      with:
+        java-version: 17
+        distribution: temurin
+
+    - name: Download original artifact
+      run: |
+        mvn dependency:get \
+          -DgroupId=${{ github.event.inputs.group_id }} \
+          -DartifactId=${{ github.event.inputs.artifact_id }} \
+          -Dversion=${{ github.event.inputs.version }}
+
+    - name: Deploy to GitHub Packages
+      run: |
+        mvn deploy:deploy-file \
+          -DgroupId=${{ github.event.inputs.group_id }} \
+          -DartifactId=${{ github.event.inputs.artifact_id }} \
+          -Dversion=${{ github.event.inputs.version }} \
+          -Dpackaging=jar \
+          -Dfile=~/.m2/repository/${{ github.event.inputs.group_id // '.' '/' }}/${{ github.event.inputs.artifact_id }}/${{ github.event.inputs.version }}/${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.jar \
+          -Durl=https://maven.pkg.github.com/Shalini-source/mob-backend-lib \
+          -DrepositoryId=github
+      env:
+        MAVEN_USERNAME: ${{ github.actor }}
+        MAVEN_PASSWORD: ${{ secrets.PAT_TOKEN }}
