@@ -4,7 +4,7 @@
                              https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
-  <groupId>com.shalini.moblib</groupId>
+  <groupId>org.springframework.cloud</groupId>
   <artifactId>spring-cloud-config-client</artifactId>
   <version>4.0.4</version>
   <packaging>jar</packaging>
@@ -47,5 +47,22 @@
       <url>https://maven.pkg.github.com/Shalini-source/mob-backend-lib</url>
     </repository>
   </distributionManagement>
-
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <id>print-dependency-tree</id>
+            <phase>validate</phase>
+            <goals>
+              <goal>tree</goal>
+            </goals>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>
