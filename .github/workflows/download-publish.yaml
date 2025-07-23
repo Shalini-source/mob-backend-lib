@@ -24,6 +24,11 @@ jobs:
         distribution: temurin
         java-version: '17'
 
+    - name: Use repository-stored settings.xml
+      run: |
+        mkdir -p ~/.m2
+        cp .github/maven/settings.xml ~/.m2/settings.xml
+
     - name: Create download directory
       run: mkdir -p ./artifact
 
