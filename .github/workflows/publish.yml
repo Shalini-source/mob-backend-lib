@@ -17,15 +17,29 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-
-      - name: Download Spring Cloud Config
+      - name: Set up Maven settings
         run: |
-          mvn dependency:get -Dartifact=org.springframework.cloud:spring-cloud-config-server:4.1.2
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<EOF
+          <settings>
+            <mirrors>
+              <mirror>
+                <id>central</id>
+                <name>Maven Central Mirror</name>
+                <url>https://repo.maven.apache.org/maven2</url>
+                <mirrorOf>central</mirrorOf>
+              </mirror>
+            </mirrors>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${{ github.actor }}</username>
+                <password>${{ secrets.PAT_TOKEN }}</password>
+              </server>
+            </servers>
+          </settings>
+          EOF
 
-      - name: Build project
-        run: mvn clean install
-
-      - name: Publish to GitHub Packages
-        run: mvn deploy
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and Deploy
+        run: mvn clean deploy
+        
