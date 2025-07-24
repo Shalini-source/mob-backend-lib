@@ -81,6 +81,25 @@ jobs:
     - name: Verify downloaded file exists
       run: ls -lh ./artifact
 
+    - name: Install Trivy
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y wget apt-transport-https gnupg lsb-release
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update
+        sudo apt-get install -y trivy
+    
+    - name: Scan JAR & POM for vulnerabilities
+      run: |
+        JAR_NAME="${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.jar"
+        POM_NAME="${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.pom"
+    
+        echo "Scanning $JAR_NAME and $POM_NAME with Trivy..."
+    
+        trivy fs ./artifact/$JAR_NAME --severity HIGH,CRITICAL --exit-code 1
+        trivy fs ./artifact/$POM_NAME --severity HIGH,CRITICAL --exit-code 1
+
     - name: Deploy to GitHub Packages
       run: |
         JAR_NAME="${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.jar"
