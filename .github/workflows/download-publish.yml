@@ -75,23 +75,27 @@ jobs:
       run: |
         JAR_NAME="${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.jar"
         echo "jar_name=$JAR_NAME" >> $GITHUB_OUTPUT
+        POM_NAME="${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.pom"
+        echo "pom_name=$POM_NAME"
         
     - name: Verify downloaded file exists
       run: ls -lh ./artifact
 
     - name: Deploy to GitHub Packages
       run: |
-        mvn -U -X deploy:deploy-file \
-          -DgroupId=org.springframework.cloud \
-          -DartifactId=spring-cloud-starter-config \
-          -Dversion=4.2.1 \
+        JAR_NAME="${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.jar"
+        POM_NAME="${{ github.event.inputs.artifact_id }}-${{ github.event.inputs.version }}.pom"
+    
+        mvn -U deploy:deploy-file \
+          -DgroupId=${{ github.event.inputs.group_id }} \
+          -DartifactId=${{ github.event.inputs.artifact_id }} \
+          -Dversion=${{ github.event.inputs.version }} \
           -Dpackaging=jar \
-          -Dfile=./artifact/spring-cloud-starter-config-4.2.1.jar \
-          -DpomFile=./artifact/spring-cloud-starter-config-4.2.1.pom \
+          -Dfile=./artifact/$JAR_NAME \
+          -DpomFile=./artifact/$POM_NAME \
           -DrepositoryId=github \
           -Durl=https://maven.pkg.github.com/Shalini-source/mob-backend-lib \
           -DgeneratePom=false
-
       env:
         MAVEN_USERNAME: ${{ github.actor }}
         MAVEN_PASSWORD: ${{ secrets.PAT_TOKEN }}
