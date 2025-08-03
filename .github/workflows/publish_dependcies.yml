@@ -1,0 +1,103 @@
+name: Mirror Maven Artifact with Dependencies
+
+on:
+  workflow_dispatch:
+    inputs:
+      group_id:
+        description: 'Group ID (e.g. org.apache.commons)'
+        required: true
+      artifact_id:
+        description: 'Artifact ID (e.g. commons-lang3)'
+        required: true
+      version:
+        description: 'Version (e.g. 3.14.0)'
+        required: true
+
+jobs:
+  mirror-and-publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Configure Maven settings
+        run: |
+          mkdir -p ~/.m2
+          cat > ~/.m2/settings.xml <<EOF
+          <settings>
+            <servers>
+              <server>
+                <id>github</id>
+                <username>${{ github.actor }}</username>
+                <password>${{ secrets.PAT_TOKEN }}</password>
+              </server>
+            </servers>
+            <profiles>
+              <profile>
+                <id>central</id>
+                <repositories>
+                  <repository>
+                    <id>central</id>
+                    <url>https://repo.maven.apache.org/maven2</url>
+                  </repository>
+                </repositories>
+              </profile>
+            </profiles>
+            <activeProfiles>
+              <activeProfile>central</activeProfile>
+            </activeProfiles>
+          </settings>
+          EOF
+
+      - name: Create artifact directories
+        run: |
+          mkdir -p ./artifact/jars
+          mkdir -p ./artifact/poms
+
+      - name: Download transitive JARs
+        run: |
+          mvn dependency:copy-dependencies \
+            -DoutputDirectory=./artifact/jars \
+            -DincludeScope=runtime \
+            -Dartifact=${{ github.event.inputs.group_id }}:${{ github.event.inputs.artifact_id }}:${{ github.event.inputs.version }}
+
+      - name: List transitive dependencies
+        run: |
+          mvn dependency:list \
+            -DincludeScope=runtime \
+            -DoutputFile=deps.txt \
+            -DappendOutput=true
+
+      - name: Download POMs for dependencies
+        run: |
+          grep ":" deps.txt | while read dep; do
+            mvn dependency:get -Dartifact=$dep:pom -Dtransitive=false
+            mvn dependency:copy -Dartifact=$dep:pom -DoutputDirectory=./artifact/poms
+          done
+
+      - name: Verify downloaded jar exists
+        run: ls -lh ./artifact/jars
+        
+      - name: Verify downloaded pom exists
+        run: ls -lh ./artifact/poms
+        
+      - name: Publish JARs and POMs
+        run: |
+          for jar in ./artifact/jars/*.jar; do
+            base=$(basename "$jar" .jar)
+            pom=./artifact/poms/${base}.pom
+
+            if [[ -f "$pom" ]]; then
+              mvn deploy:deploy-file \
+                -Dfile=$jar \
+                -DpomFile=$pom \
+                -DrepositoryId=github \
+                -Durl=https://maven.pkg.github.com/Shalini-source/mob-backend-lib
+            else
+              echo "Warning: POM file not found for $jar"
+            fi
+          done
