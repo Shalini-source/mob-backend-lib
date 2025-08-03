@@ -3,11 +3,15 @@ name: Build and Publish Spring Config
 on:
   workflow_dispatch:
     inputs:
-      test:
-      required: true
-      
- # push:
-  #  branches: [ main ]
+      group_id:
+        description: 'Group ID (e.g. org.apache.commons)'
+        required: true
+      artifact_id:
+        description: 'Artifact ID (e.g. commons-lang3)'
+        required: true
+      version:
+        description: 'Version (e.g. 3.14.0)'
+        required: true
 
 jobs:
   build-and-publish:
