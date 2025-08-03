@@ -39,7 +39,7 @@ jobs:
           </settings>
           EOF
 
-      - name: Create temporary pom.xml
+      - name: Create temp pom.xml
         run: |
           mkdir -p temp
           cat > temp/pom.xml <<EOF
