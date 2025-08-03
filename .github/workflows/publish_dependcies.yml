@@ -18,13 +18,13 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Set up Java
+      - name: 🔧 Set up Java
         uses: actions/setup-java@v3
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Configure Maven settings
+      - name: 📦 Configure Maven settings
         run: |
           mkdir -p ~/.m2
           cat > ~/.m2/settings.xml <<EOF
@@ -39,7 +39,7 @@ jobs:
           </settings>
           EOF
 
-      - name: Create temp pom.xml
+      - name: 📋 Create temporary pom.xml
         run: |
           mkdir -p temp
           cat > temp/pom.xml <<EOF
@@ -58,53 +58,81 @@ jobs:
           </project>
           EOF
 
-      - name: Create artifact directories
+      - name: 📁 Prepare artifact folders
         run: |
-          mkdir -p ./artifact/jars
-          mkdir -p ./artifact/poms
+          mkdir -p ./artifact/jars ./artifact/tree_jars
+          mkdir -p ./artifact/poms ./artifact/tree_poms
+          mkdir -p ./uploaded
 
-      - name: Download transitive JARs
+      - name: 📥 Download direct JARs
         run: |
           mvn -f temp/pom.xml dependency:copy-dependencies \
-            -DoutputDirectory=./artifact/jars
+          -DoutputDirectory=./artifact/jars
 
-      - name: List transitive dependencies
+      - name: 📃 List dependencies
         run: |
           mvn -f temp/pom.xml dependency:list \
-            -DincludeScope=runtime \
-            -DoutputFile=deps.txt \
-            -DappendOutput=true
+          -DincludeScope=runtime \
+          -DoutputFile=deps.txt \
+          -DoutputAbsoluteArtifactFilename=false \
+          -DappendOutput=true
 
-      - name: Debug deps.txt contents
+      - name: 🔍 Inspect deps.txt
         run: |
-          echo "📄 Contents of deps.txt:"
-          cat deps.txt || echo "⚠️ deps.txt not found or is empty"
+          echo "📄 Parsed dependencies:"
+          cat deps.txt || echo "⚠️ deps.txt not found"
 
-      - name: Download POMs for dependencies
+      - name: 📄 Download transitive POMs and JARs
         run: |
           grep ":" deps.txt | while read dep; do
-            mvn -f temp/pom.xml dependency:get -Dartifact=$dep:pom -Dtransitive=false
-            mvn -f temp/pom.xml dependency:copy -Dartifact=$dep:pom -DoutputDirectory=./artifact/poms
+            mvn dependency:get -Dartifact=$dep:pom -Dtransitive=false
+            mvn dependency:copy -Dartifact=$dep:pom -DoutputDirectory=./artifact/tree_poms
+            mvn dependency:copy -Dartifact=$dep -DoutputDirectory=./artifact/tree_jars
           done
 
-      - name: Verify downloaded jars
-        run: ls -lh ./artifact/jars || echo "⚠️ No JARs found"
-
-      - name: Verify downloaded poms
-        run: ls -lh ./artifact/poms || echo "⚠️ No POMs found"
-
-      - name: Publish JARs and POMs
+      - name: 🚀 Publish JARs and POMs (Skip duplicates & GitHub check)
         run: |
-          for jar in ./artifact/jars/*.jar; do
+          echo "📤 Publishing artifacts with matching POMs"
+
+          for jar in ./artifact/jars/*.jar ./artifact/tree_jars/*.jar; do
+            [ -e "$jar" ] || continue
             base=$(basename "$jar" .jar)
-            pom=./artifact/poms/${base}.pom
-            if [[ -f "$pom" ]]; then
-              mvn deploy:deploy-file \
-                -Dfile=$jar \
-                -DpomFile=$pom \
-                -DrepositoryId=github \
-                -Durl=https://maven.pkg.github.com/Shalini-source/mob-backend-lib
-            else
-              echo "⚠️ Skipping $jar — POM not found"
+
+            # Already uploaded in this run
+            if [[ -f "./uploaded/${base}.done" ]]; then
+              echo "⏭️ Skipping $base — Already processed"
+              continue
             fi
+
+            # Find matching POM
+            if [[ -f "./artifact/poms/${base}.pom" ]]; then
+              pom="./artifact/poms/${base}.pom"
+            elif [[ -f "./artifact/tree_poms/${base}.pom" ]]; then
+              pom="./artifact/tree_poms/${base}.pom"
+            else
+              echo "⚠️ Skipping $jar — No matching POM found"
+              continue
+            fi
+
+            # Check if artifact is already published to GitHub Maven
+            GROUP_ID=$(grep -oPm1 "(?<=<groupId>)[^<]+" "$pom" | tr . /)
+            ARTIFACT_ID=$(grep -oPm1 "(?<=<artifactId>)[^<]+" "$pom")
+            VERSION=$(grep -oPm1 "(?<=<version>)[^<]+" "$pom")
+
+            JAR_URL="https://maven.pkg.github.com/${{ github.repository }}/$GROUP_ID/$ARTIFACT_ID/$VERSION/${ARTIFACT_ID}-${VERSION}.jar"
+
+            if curl --head --silent --fail "$JAR_URL" > /dev/null; then
+              echo "🛑 Skipping $base — Already published on GitHub Packages"
+              touch "./uploaded/${base}.done"
+              continue
+            fi
+
+            echo "🚀 Deploying $base"
+            mvn deploy:deploy-file \
+              -Dfile="$jar" \
+              -DpomFile="$pom" \
+              -DrepositoryId=github \
+              -Durl="https://maven.pkg.github.com/Shalini-source/mob-backend-lib"
+
+            touch "./uploaded/${base}.done"
           done
