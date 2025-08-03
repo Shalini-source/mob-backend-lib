@@ -53,10 +53,10 @@ jobs:
           </settings>
           EOF
 
-      - name: Create temporary pom.xml
+      - name: Create temp pom.xml in ~/.m2
         run: |
-          mkdir -p temp
-          cat > temp/pom.xml <<EOF
+          mkdir -p ~/.m2/temp-project
+          cat > ~/.m2/temp-project/pom.xml <<EOF
           <project>
             <modelVersion>4.0.0</modelVersion>
             <groupId>mirror</groupId>
@@ -71,7 +71,7 @@ jobs:
             </dependencies>
           </project>
           EOF
-          
+
       - name: Create artifact directories
         run: |
           mkdir -p ./artifact/jars
@@ -79,12 +79,12 @@ jobs:
 
       - name: Download transitive JARs
         run: |
-          mvn -f temp/pom.xml dependency:copy-dependencies \
-            -DoutputDirectory=./artifact/jars \
-            
+          mvn -f ~/.m2/temp-project/pom.xml dependency:copy-dependencies \
+            -DoutputDirectory=./artifact/jars
+
       - name: List transitive dependencies
         run: |
-          mvn dependency:list \
+          mvn -f ~/.m2/temp-project/pom.xml dependency:list \
             -DincludeScope=runtime \
             -DoutputFile=deps.txt \
             -DappendOutput=true
@@ -92,22 +92,21 @@ jobs:
       - name: Download POMs for dependencies
         run: |
           grep ":" deps.txt | while read dep; do
-            mvn dependency:get -Dartifact=$dep:pom -Dtransitive=false
-            mvn dependency:copy -Dartifact=$dep:pom -DoutputDirectory=./artifact/poms
+            mvn -f ~/.m2/temp-project/pom.xml dependency:get -Dartifact=$dep:pom -Dtransitive=false
+            mvn -f ~/.m2/temp-project/pom.xml dependency:copy -Dartifact=$dep:pom -DoutputDirectory=./artifact/poms
           done
 
       - name: Verify downloaded jar exists
         run: ls -lh ./artifact/jars
-        
+
       - name: Verify downloaded pom exists
         run: ls -lh ./artifact/poms
-        
+
       - name: Publish JARs and POMs
         run: |
           for jar in ./artifact/jars/*.jar; do
             base=$(basename "$jar" .jar)
             pom=./artifact/poms/${base}.pom
-
             if [[ -f "$pom" ]]; then
               mvn deploy:deploy-file \
                 -Dfile=$jar \
