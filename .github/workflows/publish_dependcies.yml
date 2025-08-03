@@ -56,7 +56,7 @@ jobs:
       - name: Create temporary pom.xml
         run: |
           mkdir -p temp
-          cat > ~/.m2/pom.xml <<EOF
+          cat > temp/pom.xml <<EOF
           <project>
             <modelVersion>4.0.0</modelVersion>
             <groupId>mirror</groupId>
@@ -79,11 +79,9 @@ jobs:
 
       - name: Download transitive JARs
         run: |
-          mvn dependency:copy-dependencies \
+          mvn -f temp/pom.xml dependency:copy-dependencies \
             -DoutputDirectory=./artifact/jars \
-            -DincludeScope=runtime \
-            -Dartifact=${{ github.event.inputs.group_id }}:${{ github.event.inputs.artifact_id }}:${{ github.event.inputs.version }}
-
+            
       - name: List transitive dependencies
         run: |
           mvn dependency:list \
