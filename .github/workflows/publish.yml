@@ -48,6 +48,25 @@ jobs:
             </servers>
           </settings>
           EOF
+          
+      - name: Create temporary pom.xml
+        run: |
+          mkdir -p temp
+          cat > ~/.m2/pom.xml <<EOF
+          <project>
+            <modelVersion>4.0.0</modelVersion>
+            <groupId>mirror</groupId>
+            <artifactId>mirror-artifact</artifactId>
+            <version>1.0.0</version>
+            <dependencies>
+              <dependency>
+                <groupId>${{ github.event.inputs.group_id }}</groupId>
+                <artifactId>${{ github.event.inputs.artifact_id }}</artifactId>
+                <version>${{ github.event.inputs.version }}</version>
+              </dependency>
+            </dependencies>
+          </project>
+          EOF
 
       - name: Build and Deploy
         run: mvn clean deploy
