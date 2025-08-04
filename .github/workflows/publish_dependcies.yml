@@ -16,7 +16,6 @@ on:
 jobs:
   mirror-and-publish:
     runs-on: ubuntu-latest
-
     steps:
       - name: 🔧 Set up Java
         uses: actions/setup-java@v3
@@ -60,69 +59,89 @@ jobs:
 
       - name: 📁 Prepare artifact folders
         run: |
-          mkdir -p ./artifact/jars ./artifact/tree_jars
-          mkdir -p ./artifact/poms ./artifact/tree_poms
+          mkdir -p ./artifact/jars ./artifact/tree_jars ./artifact/full_tree_jars
+          mkdir -p ./artifact/poms ./artifact/tree_poms ./artifact/full_tree_poms
           mkdir -p ./uploaded
 
       - name: 📥 Download direct JARs
         run: |
           mvn -f temp/pom.xml dependency:copy-dependencies \
-          -DoutputDirectory=./artifact/jars
+            -DoutputDirectory=./artifact/jars
 
-      - name: 📃 List dependencies
+      - name: 📋 List dependencies
         run: |
           mvn -f temp/pom.xml dependency:list \
-          -DincludeScope=runtime \
-          -DoutputFile=deps.txt \
-          -DoutputAbsoluteArtifactFilename=false \
-          -DappendOutput=true
+            -DincludeScope=runtime \
+            -DoutputFile=deps.txt \
+            -DoutputAbsoluteArtifactFilename=false \
+            -DappendOutput=true
 
-      - name: 🔍 Inspect deps.txt
-        run: |
-          echo "📄 Parsed dependencies:"
-          cat deps.txt || echo "⚠️ deps.txt not found"
-
-      - name: 📄 Download transitive POMs and JARs
+      - name: 📥 Download transitive POMs and JARs (Skip if exists)
         run: |
           grep ":" deps.txt | while read dep; do
+            base=$(echo "$dep" | cut -d: -f2,3 | tr ':' '-')
+            jar="./artifact/tree_jars/${base}.jar"
+            pom="./artifact/tree_poms/${base}.pom"
+
+            if [[ -f "$jar" && -f "$pom" ]]; then
+              echo "⏭️ Skipping $dep — Already downloaded"
+              continue
+            fi
+
             mvn dependency:get -Dartifact=$dep:pom -Dtransitive=false
             mvn dependency:copy -Dartifact=$dep:pom -DoutputDirectory=./artifact/tree_poms
             mvn dependency:copy -Dartifact=$dep -DoutputDirectory=./artifact/tree_jars
           done
 
-      - name: 🚀 Publish JARs and POMs (Skip duplicates & GitHub check)
+      - name: 🌲 Download full dependency tree (JAR + POMs)
+        run: |
+          mvn -f temp/pom.xml dependency:tree -DoutputType=dot > tree.dot
+
+          cat tree.dot | grep -oP '\"[^:]+:[^:]+:[^:]+\"' | tr -d '"' | sort | uniq | while read dep; do
+            base=$(echo "$dep" | cut -d: -f2,3 | tr ':' '-')
+            jar="./artifact/full_tree_jars/${base}.jar"
+            pom="./artifact/full_tree_poms/${base}.pom"
+
+            if [[ -f "$jar" && -f "$pom" ]]; then
+              echo "⏭️ Skipping $dep — Already downloaded"
+              continue
+            fi
+
+            mvn dependency:get -Dartifact=$dep:pom -Dtransitive=false
+            mvn dependency:copy -Dartifact=$dep:pom -DoutputDirectory=./artifact/full_tree_poms
+            mvn dependency:copy -Dartifact=$dep -DoutputDirectory=./artifact/full_tree_jars
+          done
+
+      - name: 🚀 Publish JARs and POMs (Avoid duplicates & check GitHub)
         run: |
           echo "📤 Publishing artifacts with matching POMs"
-
-          for jar in ./artifact/jars/*.jar ./artifact/tree_jars/*.jar; do
+          for jar in ./artifact/jars/*.jar ./artifact/tree_jars/*.jar ./artifact/full_tree_jars/*.jar; do
             [ -e "$jar" ] || continue
             base=$(basename "$jar" .jar)
 
-            # Already uploaded in this run
             if [[ -f "./uploaded/${base}.done" ]]; then
               echo "⏭️ Skipping $base — Already processed"
               continue
             fi
 
-            # Find matching POM
             if [[ -f "./artifact/poms/${base}.pom" ]]; then
               pom="./artifact/poms/${base}.pom"
             elif [[ -f "./artifact/tree_poms/${base}.pom" ]]; then
               pom="./artifact/tree_poms/${base}.pom"
+            elif [[ -f "./artifact/full_tree_poms/${base}.pom" ]]; then
+              pom="./artifact/full_tree_poms/${base}.pom"
             else
               echo "⚠️ Skipping $jar — No matching POM found"
               continue
             fi
 
-            # Check if artifact is already published to GitHub Maven
             GROUP_ID=$(grep -oPm1 "(?<=<groupId>)[^<]+" "$pom" | tr . /)
             ARTIFACT_ID=$(grep -oPm1 "(?<=<artifactId>)[^<]+" "$pom")
             VERSION=$(grep -oPm1 "(?<=<version>)[^<]+" "$pom")
-
             JAR_URL="https://maven.pkg.github.com/${{ github.repository }}/$GROUP_ID/$ARTIFACT_ID/$VERSION/${ARTIFACT_ID}-${VERSION}.jar"
 
             if curl --head --silent --fail "$JAR_URL" > /dev/null; then
-              echo "🛑 Skipping $base — Already published on GitHub Packages"
+              echo "🔒 Skipping $base — Already published on GitHub Packages"
               touch "./uploaded/${base}.done"
               continue
             fi
@@ -133,6 +152,5 @@ jobs:
               -DpomFile="$pom" \
               -DrepositoryId=github \
               -Durl="https://maven.pkg.github.com/Shalini-source/mob-backend-lib"
-
             touch "./uploaded/${base}.done"
           done
